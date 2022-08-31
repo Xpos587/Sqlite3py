@@ -17,13 +17,13 @@ Usage:
 '''
 
 class Database:
-    def __init__(self, path: str = 'database.sqlite3', check_same_thread: bool = False):
-        self.connection = sqlite3.connect(path, check_same_thread = check_same_thread)
+    def __init__(self, path: str = 'database.sqlite3', check_same_thread: bool = False, *args):
+        self.connection = sqlite3.connect(path, check_same_thread = check_same_thread, *args)
         self.database = self.connection.cursor()
 
     def createTable(self, nameTable: str, rowsTable: str, existTable: bool = True):
         '''
-        Create table of your database.
+        Create table for your database.
         * `nameTable: str`, name of create table.
         * `rowsTable: str`, rows of create table.
         * `existTable: bool`, if true used `IF NOT EXISTS`.
@@ -63,7 +63,7 @@ class Database:
 
     def insert(self, nameTable: str, selectRows: str = False, dataRows: str = False):
         '''
-        Set data for selected table and row(s).
+        Insert data for selected table and row(s).
         * `nameTable: str`, name of table.
         * `selectRows: str`, name of selected row(s) in table.
         * `dataRows: str`, data of selected row(s).
