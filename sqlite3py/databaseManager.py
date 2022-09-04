@@ -1,19 +1,46 @@
 import sqlite3
 
 '''
-Module sqlite3py provides you smart requests for sqlite database.
+Module sqlite3py provides you very easy smart requests for sqlite database.
 
 Usage:
 
-    >>> import Database
+    >>> from sqlite3py import Database
 
-    >>> database = Database('./storage.sqlite', check_same_thread = False)
+    >>> database = Database('./storage.db', check_same_thread = False)
 
     # Create table
-    >>> database.createTable('files', 'uuid TEXT NOT NULL, path TEXT NOT NULL, creationTime INTEGER NOT NULL')
+    >>> users = database.table('users')
+    # Return: None
 
-    # Insert data
-    >>> database.insert('files', 'uuid, path, creationTime', '"a8098c1a-f86e-11da-bd1a-00112444be1e", "./image.png"', 1661943437796)
+    # Remove table
+    >>> users.remove()
+    # Return: None
+
+    # Insert row
+    >>> database.insert('Jhon', { 'wife': False })
+    # Return: None
+
+    # Set value
+    >>> database.set('Jhon', { 'wife': True })
+    # Return: None
+
+    # Get all values
+    >>> database.all()
+    # Return: [
+    # {'key': 'Jhon', 'value': { 'wife': True }}
+    # ]
+
+    # Get values
+    >>> database.get('Jhon')[0]['wife']
+    # Return: True
+
+    >>> database.get('Jhon')[0]
+    # Return: { 'wife': True }
+
+    # Delete row
+    >>> database.delete('Jhon')
+    # Return: None
 '''
 
 class Database:
@@ -21,147 +48,290 @@ class Database:
         self.connection = sqlite3.connect(path, check_same_thread = check_same_thread, *args)
         self.database = self.connection.cursor()
 
-    def createTable(self, nameTable: str, rowsTable: str, existTable: bool = True):
+        self.database.execute(f'CREATE TABLE IF NOT EXISTS data(Key TEXT, Value TEXT)')
+
+    def all(self):
         '''
-        Create table for your database.
-        * `nameTable: str`, name of create table.
-        * `rowsTable: str`, rows of create table.
-        * `existTable: bool`, if true used `IF NOT EXISTS`.
+        Return all rows from database.
 
         Example usage:
 
-            >>> createTable('users', 'username TEXT NOT NULL, password TEXT')
+            >>> database.all()
+            # Return: [
+            # {'key': 'Michael', 'value': { 'age': 15 }},
+            # {'key': 'Sany', 'value': { 'age': 24, 'have_car': True }}]
         '''
 
-        if rowsTable: rowsTable = f'({rowsTable})'
-        else: rowsTable = ''
+        rows = self.database.execute(f'SELECT * FROM data')
 
-        if existTable: existTable = ' IF NOT EXISTS'
-        else: existTable = False
+        table = []
 
-        return self.database.execute(f'CREATE TABLE{existTable} {nameTable}{rowsTable}')
+        for row in rows.fetchall():
+
+            key = row[0]
+            try: value = eval(row[1])
+            except NameError as err:
+                value = str(row[1])
+
+            table.append({
+                    'key': key,
+                    'value': value
+                })
+
+        if table: return table
+        else: return False
 
 
 
-    def removeTable(self, nameTable: str, existTable: bool = True):
+    def get(self, select: str):
         '''
-        Remove table from your database.
-        * `nameTable: str`, name of create table.
-        * `existTable: bool`, if true used `IF EXISTS`.
+        Return selected row values from database.
+        * `select: str`, Key of selected row.
 
         Example usage:
 
-            >>> removeTable('users')
+            >>> database.get('Michael')
+            # Return: { 'age': 15 }
+        '''
+        
+        res = []
+
+        if self.all():
+            for object in self.all():
+                if object['key'] == select:
+                    res.append(object['value'])
+                continue
+        else: return False
+
+        if res: return res
+        else: return False
+
+
+
+    def set(self, select: str, value, createIfNotExist: bool = True):
+        '''
+        Update (Set) value for selected row.
+        * `select: str`, Key of selected row.
+        * `value`, Key value.
+        * `createIfNotExist: bool = True`, Create row, if selected row not exist.
+
+        Example usage:
+
+            >>> database.set('Michael', { 'age': 16 })
+            # Return: None
+        '''
+
+        if self.get(select) is False:
+            if createIfNotExist:
+                self.insert(select, value)
+            else: return
+
+        self.database.execute(f'UPDATE data SET Value = "{value}" WHERE Key = "{select}"')
+        return self.connection.commit()
+
+
+
+    def insert(self, select: str, value, dontInsertIfExist: bool = False):
+        '''
+        Insert (Push) row.
+        * `select: str`, Key of selected row.
+        * `value`, Key value.
+        * `dontInsertIfExist: bool = False`, Don't insert, if selected row exist.
+
+        Example usage:
+
+            >>> database.insert('Georgi', { 'age': 29, 'have_car': False }, True)
+            # Return: None
+        '''
+
+        if self.get(select):
+            if dontInsertIfExist: return
+
+        self.database.execute(f'INSERT INTO data(Key, Value) VALUES("{select}", "{value}")')
+        return self.connection.commit()
+
+
+
+    def delete(self, select: str):
+        '''
+        Delete row.
+        * `select: str`, Key of selected row.
+
+        Example usage:
+
+            >>> database.delete('Georgi')
+            # Return: None
+        '''
+
+        self.database.execute(f'DELETE FROM data WHERE Key = "{select}"')
+        return self.connection.commit()
+
+
+
+    def table(self, nameTable: str):
+        '''
+        Class Table (Create table if not exist).
+        * `nameTable: str`, Name of table.
+
+        Example usage:
+
+            >>> users = database.table('users')
+            # Return: None
+        '''
+
+        return Table(self.connection, self.database, nameTable)
+
+
+class Table:
+    '''
+    Class Table (Create table if not exist).
+    * `nameTable: str`, Name of table.
+
+    Example usage:
+
+        >>> users = database.table('users')
+        # Return: None
+    '''
+
+    def __init__(self, connection, database, nameTable: str):
+        self.connection = connection
+        self.database = database
+        self.nameTable = nameTable
+
+        database.execute(f'CREATE TABLE IF NOT EXISTS {nameTable}(Key TEXT, Value TEXT)')
+
+
+
+    def remove(self, existTable: bool = True):
+        '''
+        Remove table.
+        * `existTable: bool = True`, Remove table if exist.
+
+        Example usage:
+
+            >>> database.table('users').remove()
+            # Return: None
         '''
 
         if existTable: existTable = ' IF EXISTS'
-        else: existTable = False
+        else: existTable = ''
 
-        return self.database.execute(f'DROP TABLE{existTable} {nameTable}')
+        return self.database.execute(f'DROP TABLE{existTable} {self.nameTable}')
 
 
 
-    def insert(self, nameTable: str, selectRows: str = False, dataRows: str = False):
+    def all(self):
         '''
-        Insert data for selected table and row(s).
-        * `nameTable: str`, name of table.
-        * `selectRows: str`, name of selected row(s) in table.
-        * `dataRows: str`, data of selected row(s).
+        Return all rows from table.
 
         Example usage:
 
-            >>> insert('users', 'username, password', f'{username}, {password}')
+            >>> database.table('users').all()
+            # Return: [
+            # {'key': 'Michael', 'value': { 'age': 15 }},
+            # {'key': 'Sany', 'value': { 'age': 24, 'have_car': True }}]
         '''
 
-        if selectRows: selectRows = f'({selectRows})'
-        else: selectRows = ''
+        rows = self.database.execute(f'SELECT * FROM {self.nameTable}')
 
-        if dataRows: dataRows = f' VALUES({dataRows})'
-        else: dataRows = ''
+        table = []
 
-        self.database.execute(f'INSERT INTO {nameTable}{selectRows}{dataRows}')
+        for row in rows.fetchall():
+
+            key = row[0]
+            try: value = eval(row[1])
+            except NameError as err:
+                value = str(row[1])
+
+            table.append({
+                    'key': key,
+                    'value': value
+                })
+
+        if table: return table
+        else: return False
+
+
+
+    def get(self, select: str):
+        '''
+        Return selected row values from table.
+        * `select: str`, Key of selected row.
+
+        Example usage:
+
+            >>> database.table('users').get('Michael')
+            # Return: { 'age': 15 }
+        '''
+        
+        res = []
+
+        if self.all():
+            for object in self.all():
+                if object['key'] == select:
+                    res.append(object['value'])
+                continue
+        else: return False
+
+        if res: return res
+        else: return False
+
+
+
+    def set(self, select: str, value, createIfNotExist: bool = True):
+        '''
+        Update (Set) value for selected row.
+        * `select: str`, Key of selected row.
+        * `value`, Key value.
+        * `createIfNotExist: bool = True`, Create row, if selected row not exist.
+
+        Example usage:
+
+            >>> database.table('users').set('Michael', { 'age': 16 })
+            # Return: None
+        '''
+
+        if self.get(select) is False:
+            if createIfNotExist:
+                self.insert(select, value)
+            else: return
+
+        self.database.execute(f'UPDATE {self.nameTable} SET Value = "{value}" WHERE Key = "{select}"')
         return self.connection.commit()
 
 
 
-    def get(self, nameTable: str, selectRow: str, sqlElements: str = False):
+    def insert(self, select: str, value, dontInsertIfExist: bool = False):
         '''
-        Return data from selected table and row.
-        * `nameTable: str`, name of table.
-        * `selectRows: str`, name of selected row(s) in table,
-        * Use `'*'` for all variables.
-        * `sqlElements: str`, sql elements like HAVING, WHERE, GROUP_BY and etc..
-
-            >>> sqlElements example: ('WHERE id IN (9722188724768, 5312188724941)')
+        Insert (Push) row.
+        * `select: str`, Key of selected row.
+        * `value`, Key value.
+        * `dontInsertIfExist: bool = False`, Don't insert, if selected row exist.
 
         Example usage:
 
-            >>> get('users', 'id', 'WHERE name = "Jhon"')
+            >>> database.table('users').insert('Georgi', { 'age': 29, 'have_car': False }, True)
+            # Return: None
         '''
 
-        if sqlElements: sqlElements = f' {sqlElements}'
-        else: sqlElements = ''
+        if self.get(select):
+            if dontInsertIfExist: return
 
-        return self.database.execute(f'SELECT {selectRow} FROM {nameTable}{sqlElements}')
-
-
-
-    def delete(self, nameTable: str, sqlElements: str = False):
-        '''
-        Delete data from selected table and row.
-        * `nameTable: str`, name of table.
-        * `sqlElements: str`, sql elements like HAVING, WHERE, GROUP_BY and etc..
-
-            >>> sqlElements example: ('WHERE id NOT IN (9722188724768, 5312188724941)')
-
-        Example usage:
-
-            >>> delete('users', 'WHERE id = 9722188724768')
-        '''
-
-        if sqlElements: sqlElements = f' {sqlElements}'
-        else: sqlElements = ''
-
-        self.database.execute(f'DELETE FROM {nameTable}{sqlElements}')
+        self.database.execute(f'INSERT INTO {self.nameTable}(Key, Value) VALUES("{select}", "{value}")')
         return self.connection.commit()
 
 
 
-    def set(self, nameTable: str, selectRows: str, sqlElements: str = False):
+    def delete(self, select: str):
         '''
-        Update (Set) data for selected table and row(s).
-        * `nameTable: str`, name of table.
-        * `selectRows: str`, name of selected row(s) in table.
-        * `sqlElements: str`, sql elements like HAVING, WHERE, GROUP_BY and etc..
-
-            >>> sqlElements example: ('ORDER BY name')
+        Delete row.
+        * `select: str`, Key of selected row.
 
         Example usage:
 
-            >>> set('users', 'pass = "root1234"')
+            >>> database.table('users').delete('Georgi')
+            # Return: None
         '''
 
-        if sqlElements: sqlElements = f' {sqlElements}'
-        else: sqlElements = ''
-
-        self.database.execute(f'UPDATE {nameTable} SET {selectRows}{sqlElements}')
+        self.database.execute(f'DELETE FROM {self.nameTable} WHERE Key = "{select}"')
         return self.connection.commit()
-
-
-
-    def request(self, request: str, commit: bool = False):
-        '''
-        Send your SQL request to database.
-        * `request: str`, sql request like SELECT, UPDATE, DROP and etc..
-        * `commit: bool`, default `False`, send your changes to database.
-
-        Example usage:
-
-            >>> request('DELETE FROM users WHERE id = null')
-        '''
-
-        if commit:
-            self.database.execute(f'{request}')
-            return self.connection.commit()
-        else:
-            return self.database.execute(f'{request}')

@@ -1,50 +1,56 @@
 sqlite3py
 =========
 
-Module sqlite3py provides you smart requests for sqlite database.
+Module sqlite3py provides you very easy smart requests for sqlite database.
 
 <div style="width: 100%; display: flex; justify-content: center">
-    <img style="text-align: center;" src="./sqlite3py.png" alt></img>
+    <img style="text-align: center;" src="https://raw.githubusercontent.com/Xpos587/Sqlite3py/master/sqlite3py.png" alt draggable="false" ></img>
 </div>
+<a href="https://github.com/Xpos587/Sqlite3py">Read on GitHub</a>
+<br>
+<a href="https://github.com/Xpos587/Sqlite3py/tree/master/examples">Examples folder</a>
 
 Methods:
 --------
-- **createTable** (Create table for your database.)
-- **removeTable** (Remove table from your database.)
-- **insert** (Insert data for selected table and row(s).)
-- **get** (Return data from selected table and row.)
-- **delete** (Delete data from selected table and row.)
-- **set** (Update (Set) data for selected table and row(s).)
-- **request** (Send your SQL request to database.)
+- **set** (Update (Set) values for selected row.)
+- **insert** (Insert (Push) row.)
+- **all** (Return all values.)
+- **get** (Return values from selected row.)
+- **delete** (Delete selected row.)
 
 #### **Example**
 
 ```python
-## before:
-import sqlite3
+'''After sqlite3py Version 2.0.0'''
 
-connection = sqlite3.connect('database.sqlite3', check_same_thread = False)
-cursor = connection.cursor()
+from sqlite3py import Database
 
-cursor.execute('''CREATE TABLE IF NOT EXISTS files(uuid TEXT NOT NULL, name TEXT NOT NULL, extension TEXT NOT NULL, description TEXT NOT NULL)''')
+# Create database 
+database = Database('./storage.db', check_same_thread = False)
 
-description = cursor.execute('''SELECT description FROM files where uuid = ?''', (file,)).fetchone()[0]
+# Create table
+files = database.table('files')
 
-cursor.execute('''INSERT INTO files(uuid, name, extension, description) VALUES(?, ?, ?, ?)''', (fileUuid, fileName, fileExtension, fileDescription))
+# Set values
+files.set('Documentation', {
+    'title': 'Documentation',
+    'description': 'Some description',
+    'type': 'pdf',
+    'uuid': 'a8098c1a-f86e-11da-bd1a-00112444be1e',
+})
 
-connection.commit()
+# Get values
+files.get('Documentation')[0]['description']
+# Return: 'Some description'
 
-
-## after:
-import sqlite3py
-
-database = Database()
-
-database.createTable('files', 'uuid TEXT NOT NULL, name TEXT NOT NULL, extension TEXT NOT NULL, description TEXT NOT NULL')
-
-database.get('files', 'description', f'WHERE uuid = "{file}"').fetchone()[0]
-
-database.insert('files', 'uuid, name, extension, description', f'"{fileUuid}", "{fileName}", "{fileExtension}", "{fileDescription}"')
+# Get all values
+files.all()
+# Return: [{'key': 'Documentation', 'value': {
+#   'title': 'Documentation',
+#   'description': 'Some description',
+#   'type': 'pdf',
+#   'uuid': 'a8098c1a-f86e-11da-bd1a-00112444be1e',
+# }}]
 ```
 
 Requirements Packages
