@@ -1,4 +1,9 @@
-import sqlite3
+import sqlite3, os
+
+try: import jmespath
+except:
+    os.system('pip install jmespath')
+    import jmespath
 
 '''
 Module sqlite3py provides you very easy smart requests for sqlite database.
@@ -70,7 +75,7 @@ class Database:
 
             key = row[0]
             try: value = eval(row[1])
-            except NameError as err:
+            except NameError:
                 value = str(row[1])
 
             table.append({
@@ -83,7 +88,7 @@ class Database:
 
 
 
-    def get(self, select: str):
+    def get(self, select: str) -> None:
         '''
         Return selected row values from database.
         * `select: str`, Key of selected row.
@@ -93,18 +98,8 @@ class Database:
             >>> database.get('Michael')
             # Return: { 'age': 15 }
         '''
-        
-        res = []
 
-        if self.all():
-            for object in self.all():
-                if object['key'] == select:
-                    res.append(object['value'])
-                continue
-        else: return False
-
-        if res: return res
-        else: return False
+        return jmespath.search(select, self.all())
 
 
 
